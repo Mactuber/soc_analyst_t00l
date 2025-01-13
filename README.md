@@ -58,6 +58,9 @@ La salida de los scripts estará organizada y te proporcionará la siguiente inf
    - Resultado de IPVoid: Un análisis de la entidad con la API de IPVoid.
    - Clasificación: Indicación de si la entidad es maliciosa o no, según los resultados de las APIs
 
+
+PD: El error en el script de URLs significa que no existen escaneos anteriores a la URL, por lo que se procedería a escanearla directamente desde la Web.
+
 ### 4. Ejemplo de ejecución
 
 ![script 1 IPs](/Images/script_ips1.png)
