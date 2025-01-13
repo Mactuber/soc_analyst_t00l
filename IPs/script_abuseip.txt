@@ -1,0 +1,45 @@
+# Define los parámetros de la API
+$api_key = "#PONER API PERSONAL AQUÍ"
+$max_age_in_days = 90
+
+# Solicita el archivo de texto al usuario
+$file_path = Read-Host -Prompt "Introduce la ruta del archivo de texto con las direcciones IP"
+
+# Lee las direcciones IP del archivo
+$ip_addresses = Get-Content -Path $file_path
+
+# Inicializa una lista para almacenar los datos
+$all_data = @()
+
+foreach ($ip_address in $ip_addresses) {
+    # Construye la URL de la solicitud con parámetros
+    $url = "https://api.abuseipdb.com/api/v2/check?ipAddress=$ip_address&maxAgeInDays=$max_age_in_days"
+
+    # Realiza la solicitud HTTP GET con la clave de API y el encabezado Accept
+    $response = Invoke-RestMethod -Uri $url -Method Get -Headers @{ "Key" = $api_key; "Accept" = "application/json" }
+
+    # Analiza la respuesta JSON
+    $data = $response.data
+
+    # Almacena la información principal en la lista
+    $all_data += [PSCustomObject]@{
+        "IP Address"               = $data.ipAddress
+        "Is Public"                = $data.isPublic
+        "IP Version"               = $data.ipVersion
+        "Is Whitelisted"           = $data.isWhitelisted
+        "Abuse Confidence Score"   = $data.abuseConfidenceScore
+        "Country Code"             = $data.countryCode
+        "Country Name"             = $data.countryName
+        "Usage Type"               = $data.usageType
+        "ISP"                      = $data.isp
+        "Domain"                   = $data.domain
+        "Is TOR"                   = $data.isTor
+        "Total Reports"            = $data.totalReports
+        "Number of Distinct Users" = $data.numDistinctUsers
+        "Last Reported At"         = $data.lastReportedAt
+    }
+}
+
+# Muestra la información principal en una tabla
+Write-Host "`nInformación principal:"
+$all_data | Format-Table -AutoSize

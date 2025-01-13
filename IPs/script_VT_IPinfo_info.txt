@@ -1,0 +1,101 @@
+# Define la API key de VirusTotal y el token de IPinfo
+$apiKey = "#PONER_API_KEY_VIRUSTOTAL_AQUÍ"
+$ipInfoToken = "#PONER_TOKEN_IPINFO_AQUÍ"
+
+# Solicitar al usuario la ruta del archivo de texto con las IPs
+$archivoIps = Read-Host "Introduce la ruta del archivo con las IPs (por ejemplo: C:\ruta\a\tu\archivo.txt)"
+
+# Verificar si el archivo existe
+if (Test-Path $archivoIps) {
+    # Leer el archivo de texto con las IPs
+    $ipList = Get-Content -Path $archivoIps
+
+    # Iterar sobre cada IP en el archivo
+    foreach ($ipAddress in $ipList) {
+        Write-Host "--------------------------------------"
+        Write-Host "Análisis de la IP: $ipAddress"
+        Write-Host "--------------------------------------"
+
+        # ------------------ Información de VirusTotal ------------------
+
+        # Define los encabezados de la solicitud
+        $headers = @{
+            "accept" = "application/json"
+            "x-apikey" = $apiKey
+        }
+
+        # Realiza la solicitud a la API de VirusTotal para obtener los votos de la IP
+        $responseVotes = Invoke-WebRequest -Uri "https://www.virustotal.com/api/v3/ip_addresses/$ipAddress/votes" -Method GET -Headers $headers
+        $votosData = $responseVotes.Content | ConvertFrom-Json
+
+        # Realiza la solicitud a la API de VirusTotal para obtener los comentarios de la IP
+        $responseComments = Invoke-WebRequest -Uri "https://www.virustotal.com/api/v3/ip_addresses/$ipAddress/comments?limit=10" -Method GET -Headers $headers
+        $comentariosData = $responseComments.Content | ConvertFrom-Json
+
+        # Inicializa la variable que determina si la IP es maliciosa
+        $isMalicious = $false
+
+        # Acumula los resultados de los votos
+        $votosResult = "Votos para la dirección IP ${ipAddress}:"
+        foreach ($vote in $votosData.data) {
+            $votosResult += "`nFecha: $([datetime]::FromFileTimeUtc($vote.attributes.date))"
+            $votosResult += "`nValor: $($vote.attributes.value)"
+            $votosResult += "`nVeredicto: $($vote.attributes.verdict)"
+            $votosResult += "`n"
+            
+            if ($vote.attributes.verdict -eq "malicious") {
+                $isMalicious = $true
+            }
+        }
+
+        $votosResult += if ($isMalicious) {
+            "`nLa dirección IP ${ipAddress} es considerada maliciosa."
+        } else {
+            "`nLa dirección IP ${ipAddress} no es considerada maliciosa."
+        }
+
+        # Acumula los resultados de los comentarios
+        $comentariosResult = "Comentarios para la dirección IP ${ipAddress}:"
+        foreach ($comment in $comentariosData.data) {
+            $comentariosResult += "`nFecha: $([datetime]::FromFileTimeUtc($comment.attributes.date))"
+            $comentariosResult += "`nTexto: $($comment.attributes.text)"
+            $comentariosResult += "`nVotos Positivos: $($comment.attributes.votes.positive)"
+            $comentariosResult += "`nVotos Negativos: $($comment.attributes.votes.negative)"
+            $comentariosResult += "`nVotos de Abuso: $($comment.attributes.votes.abuse)"
+            $comentariosResult += "`nTags: $($comment.attributes.tags -join ', ')"
+            $comentariosResult += "`n"
+        }
+
+        # ------------------ Información de IPinfo ------------------
+
+        # Definir la URL base de la API de IPinfo
+        $apiUrl = "https://ipinfo.io/{0}/json?token=$ipInfoToken"
+
+        try {
+            # Hacer la solicitud HTTP a la API de IPinfo
+            $url = $apiUrl -f $ipAddress
+            $response = Invoke-RestMethod -Uri $url -Method Get
+
+            $ipInfoResult = "`nInformación adicional para la IP ${ipAddress}:"
+            $ipInfoResult += "`nHostname: $($response.hostname)"
+            $ipInfoResult += "`nCiudad: $($response.city)"
+            $ipInfoResult += "`nRegión: $($response.region)"
+            $ipInfoResult += "`nPaís: $($response.country)"
+            $ipInfoResult += "`nUbicación: $($response.loc)"
+            $ipInfoResult += "`nASN: $($response.asn)"
+            $ipInfoResult += "`nProveedor: $($response.company.name)"
+            $ipInfoResult += "`nDominio: $($response.domain)"
+        }
+        catch {
+            $ipInfoResult = "`nError al obtener información para la IP: $ipAddress"
+        }
+
+        # Mostrar los resultados acumulados
+        Write-Host $votosResult
+        Write-Host $comentariosResult
+        Write-Host $ipInfoResult
+        Write-Host "--------------------------------------"
+    }
+} else {
+    Write-Host "El archivo especificado no existe. Asegúrate de que la ruta sea correcta."
+}

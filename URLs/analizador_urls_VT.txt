@@ -1,0 +1,87 @@
+# Configuración de encabezados y API key
+$headers = @{
+    "accept" = "application/json"
+    "x-apikey" = "#PONER_API_KEY_VIRUSTOTAL_AQUÍ"
+}
+
+# Solicitar al usuario que ingrese la ruta del archivo de URLs
+$path = Read-Host "Por favor, ingresa la ruta del archivo .txt con las URLs"
+
+# Verificar si el archivo existe
+if (-Not (Test-Path -Path $path)) {
+    Write-Host "El archivo no existe. Por favor verifica la ruta e inténtalo de nuevo."
+    exit
+}
+
+# Leer las URLs desde el archivo
+$urls = Get-Content -Path $path
+
+# Función para obtener el identificador base64 de la URL
+function Get-UrlId {
+    param (
+        [string]$url
+    )
+    return [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($url)).TrimEnd('=')
+}
+
+# Función para obtener el reporte de VirusTotal para una URL
+function Get-VirusTotalReport {
+    param (
+        [string]$urlId
+    )
+    $uri = "https://www.virustotal.com/api/v3/urls/$urlId"
+    try {
+        $response = Invoke-WebRequest -Uri $uri -Method GET -Headers $headers
+        return $response.Content | ConvertFrom-Json
+    } catch {
+        Write-Host "Error al obtener el reporte para URL ID: $urlId"
+        return $null
+    }
+}
+
+# Función para enviar la URL a VirusTotal para su análisis
+function Submit-UrlForAnalysis {
+    param (
+        [string]$url
+    )
+    $uri = "https://www.virustotal.com/api/v3/urls"
+    $body = @{
+        "url" = $url
+    } | ConvertTo-Json
+    try {
+        $response = Invoke-WebRequest -Uri $uri -Method POST -Headers $headers -Body $body
+        return $response.Content | ConvertFrom-Json
+    } catch {
+        Write-Host "Error al enviar la URL para análisis: $url"
+        return $null
+    }
+}
+
+# Crear el reporte
+$report = @()
+
+foreach ($url in $urls) {
+    $urlId = Get-UrlId -url $url
+    $result = Get-VirusTotalReport -urlId $urlId
+    if ($result) {
+        if ($result.data.attributes.last_analysis_stats.malicious -gt 0) {
+            $reported = "Sí"
+        } else {
+            $reported = "No"
+        }
+    } else {
+        $submitResult = Submit-UrlForAnalysis -url $url
+        if ($submitResult) {
+            $reported = "Enviado para análisis"
+        } else {
+            $reported = "Error"
+        }
+    }
+    $report += [PSCustomObject]@{
+        URL      = $url
+        Reported = $reported
+    }
+}
+
+# Mostrar el reporte
+$report | Format-Table -AutoSize

@@ -1,0 +1,60 @@
+$headers = @{
+    "accept" = "application/json"
+    "x-apikey" = "#PONER API PERSONAL AQUÍ"
+}
+
+function Get-VirusTotalReport {
+    param (
+        [string]$hash
+    )
+
+    $uri = "https://www.virustotal.com/api/v3/files/$hash"
+    try {
+        $response = Invoke-WebRequest -Uri $uri -Method GET -Headers $headers
+        $json = $response.Content | ConvertFrom-Json
+        return $json
+    } catch {
+        Write-Output "Error al obtener el informe: $_"
+        return $null
+    }
+}
+
+function Show-Report {
+    param (
+        [object]$report
+    )
+
+    if ($report -ne $null) {
+        if ($report.data -ne $null) {
+            $analysis_stats = $report.data.attributes.last_analysis_stats
+            Write-Output "Informe para el hash: $($report.data.id)"
+            Write-Output "Tipo: $($report.data.type)"
+            Write-Output "Malicioso: $($analysis_stats.malicious)"
+            Write-Output "Sospechoso: $($analysis_stats.suspicious)"
+            Write-Output "Inofensivo: $($analysis_stats.harmless)"
+            Write-Output "No detectado: $($analysis_stats.undetected)"
+            Write-Output "Enlace: https://www.virustotal.com/gui/file/$($report.data.id)"
+            Write-Output ""
+        } else {
+            Write-Output "No ha sido encontrado ni reportado por ningúno de nuestros proveedores de análisis"
+        }
+    } else {
+        Write-Output "No se pudo obtener el informe. Verifica el hash y vuelve a intentarlo."
+    }
+}
+
+# Solicitar el nombre del archivo al usuario
+$filePath = Read-Host -Prompt "Introduce la ruta del archivo que contiene los hashes"
+
+if (Test-Path $filePath) {
+    $hashes = Get-Content -Path $filePath
+
+    foreach ($hash in $hashes) {
+        Write-Output "Analizando hash: $hash"
+        $report = Get-VirusTotalReport -hash $hash
+        Show-Report -report $report
+        Write-Output "-----------------------------"
+    }
+} else {
+    Write-Output "El archivo no existe. Verifica la ruta y vuelve a intentarlo."
+}

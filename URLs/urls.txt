@@ -1,0 +1,5 @@
+http://malware.testing.google.test/testing/virus
+http://example.eicar.org/download/eicar.com
+http://www.ian.org.tr/malicious-url
+http://malware.wicar.org/data/ms14_064_ole_notepad.jpg
+http://test.maliciousdomain.com/badlink

@@ -1,0 +1,115 @@
+function Analyze-Domain {
+    param (
+        [string]$apiKeyAPIVoid,
+        [string]$apiKeyVirusTotal,
+        [string]$domain
+    )
+
+    # APIVoid Analysis
+    $urlAPIVoid = "https://endpoint.apivoid.com/domainbl/v1/pay-as-you-go/?key=$apiKeyAPIVoid&host=$domain"
+    $responseAPIVoid = Invoke-RestMethod -Uri $urlAPIVoid -Method Get -ErrorAction SilentlyContinue
+
+    # VirusTotal Analysis
+    $headers = @{
+        "x-apikey" = $apiKeyVirusTotal
+    }
+    $urlVirusTotal = "https://www.virustotal.com/api/v3/domains/$domain"
+    $responseVirusTotal = Invoke-RestMethod -Uri $urlVirusTotal -Method Get -Headers $headers -ErrorAction SilentlyContinue
+
+    # Process APIVoid Response
+    $risksAPIVoid = @()
+    if ($responseAPIVoid -and $responseAPIVoid.data -and $responseAPIVoid.data.report -and $responseAPIVoid.data.report.blacklists -and $responseAPIVoid.data.report.blacklists.engines) {
+        $dataAPIVoid = $responseAPIVoid.data.report.blacklists.engines
+        foreach ($key in $dataAPIVoid.PSObject.Properties.Name) {
+            $engine = $dataAPIVoid.$key
+            if ($engine.detected -eq $true) {
+                $riskInfo = [PSCustomObject]@{
+                    Engine     = $engine.engine
+                    Confidence = $engine.confidence
+                    Reference  = $engine.reference
+                }
+                $risksAPIVoid += $riskInfo
+            }
+        }
+    }
+
+    # Process VirusTotal Response
+    $risksVirusTotal = @()
+    if ($responseVirusTotal -and $responseVirusTotal.data -and $responseVirusTotal.data.attributes -and $responseVirusTotal.data.attributes.last_analysis_results) {
+        $dataVirusTotal = $responseVirusTotal.data.attributes.last_analysis_results
+        foreach ($key in $dataVirusTotal.PSObject.Properties.Name) {
+            $engine = $dataVirusTotal.$key
+            if ($engine.category -eq "malicious") {
+                $riskInfo = [PSCustomObject]@{
+                    Engine     = $engine.engine_name
+                    Category   = $engine.category
+                    Result     = $engine.result
+                }
+                $risksVirusTotal += $riskInfo
+            }
+        }
+    }
+
+    # Return Combined Results
+    return [PSCustomObject]@{
+        Domain         = $domain
+        APIVoidRisks   = $risksAPIVoid
+        VirusTotalRisks = $risksVirusTotal
+    }
+}
+
+function Analyze-Domains-From-File {
+    param (
+        [string]$apiKeyAPIVoid,
+        [string]$apiKeyVirusTotal,
+        [string]$filePath
+    )
+
+    # Leer dominios del archivo
+    $domains = Get-Content -Path $filePath
+
+    # Resultados para todos los dominios
+    $allResults = @()
+
+    foreach ($domain in $domains) {
+        $result = Analyze-Domain -apiKeyAPIVoid $apiKeyAPIVoid -apiKeyVirusTotal $apiKeyVirusTotal -domain $domain
+        $allResults += $result
+    }
+
+    return $allResults
+}
+
+# Claves API
+$apiKeyAPIVoid = "#PONER API PERSONAL AQUÍ"
+$apiKeyVirusTotal = "#PONER API PERSONAL AQUÍ"
+
+# Solicita al usuario el archivo de texto con dominios
+$filePath = Read-Host -Prompt "Ingrese la ruta del archivo de texto con dominios"
+$results = Analyze-Domains-From-File -apiKeyAPIVoid $apiKeyAPIVoid -apiKeyVirusTotal $apiKeyVirusTotal -filePath $filePath
+
+# Mostrar resultados de manera ordenada y clara en tablas
+foreach ($result in $results) {
+    Write-Host "------------------------------------------"
+    Write-Host "Resultados para el dominio: $($result.Domain)"
+    Write-Host "------------------------------------------"
+
+    # Crear tabla para APIVoid
+    if ($result.APIVoidRisks.Count -gt 0) {
+        Write-Host "Riesgos detectados por APIVoid:" -ForegroundColor Cyan
+        $result.APIVoidRisks | Format-Table -Property Engine, Confidence, Reference -AutoSize
+    } else {
+        Write-Host "No se detectaron riesgos en APIVoid." -ForegroundColor Green
+    }
+
+    Write-Host "------------------------------------------"
+
+    # Crear tabla para VirusTotal
+    if ($result.VirusTotalRisks.Count -gt 0) {
+        Write-Host "Riesgos detectados por VirusTotal:" -ForegroundColor Cyan
+        $result.VirusTotalRisks | Format-Table -Property Engine, Category, Result -AutoSize
+    } else {
+        Write-Host "No se detectaron riesgos en VirusTotal." -ForegroundColor Green
+    }
+
+    Write-Host "------------------------------------------"
+}
