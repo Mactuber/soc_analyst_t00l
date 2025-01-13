@@ -58,4 +58,10 @@ La salida de los scripts estará organizada y te proporcionará la siguiente inf
    - Resultado de IPVoid: Un análisis de la entidad con la API de IPVoid.
    - Clasificación: Indicación de si la entidad es maliciosa o no, según los resultados de las APIs
 
+### 4. Ejemplo de ejecución
+
+![script 1 IPs](/Images/script_ips1.png)
+![script 2 IPs](/Images/script_ips2.png)
+![script dominios](/Images/scripts_domains.png)
+![script de hashes](/Images/scripts_hashes.png)
 
