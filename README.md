@@ -64,4 +64,4 @@ La salida de los scripts estará organizada y te proporcionará la siguiente inf
 ![script 2 IPs](/Images/script_ips2.png)
 ![script dominios](/Images/scripts_domains.png)
 ![script de hashes](/Images/scripts_hashes.png)
-
+![script de URLs](/Images/scripts_urls.png)
